@@ -3,9 +3,9 @@ import 'bootstrap/dist/css/bootstrap.css';
 import Form from 'react-bootstrap/Form';
 import Button from 'react-bootstrap/Button';
 import { createMint, getMint, getOrCreateAssociatedTokenAccount, getAccount, mintTo, transfer } from '@solana/spl-token';
-import { Keypair, Connection } from '@solana/web3.js';
+import { Keypair, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
-import {  SystemProgram, Transaction } from '@solana/web3.js';
+import {  SystemProgram, Transaction, sendAndConfirmTransaction } from '@solana/web3.js';
 
 
 export default function InputForm() {
@@ -17,12 +17,13 @@ export default function InputForm() {
   const mintAuthority = Keypair.generate();
   const freezeAuthority = Keypair.generate();
   const connection = new Connection("http://localhost:8899", 'confirmed');
-  const { publicKey, sendTransaction } = useWallet();
+  const { sendTransaction } = useWallet();
 
   
   const submitForm = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     create(Number(decimals), Number(initSupply))
+    // onClickTransfer() 
   }
 
   const mywallet = useWallet();
@@ -32,12 +33,10 @@ export default function InputForm() {
   const [accountTokenAmount, setaccountTokenAmount] = useState('')
 
   const create = async (decimal: number, InitialSupply: number) => {
-
     const airdropSignature = await connection.requestAirdrop(
       wallet.publicKey,
       1000000000,
     );
-    
     await connection.confirmTransaction(airdropSignature);
     
     const mint = await createMint(
@@ -47,8 +46,6 @@ export default function InputForm() {
       freezeAuthority.publicKey,
       decimal,
     )
-    const newMintTokenAddress = mint.toBase58()
-    setnewMintTokenAddress(newMintTokenAddress)
 
     const tokenAccount = await getOrCreateAssociatedTokenAccount(
       connection,
@@ -56,62 +53,82 @@ export default function InputForm() {
       mint,
       wallet.publicKey
     )    
-    const tokenAccountValue = tokenAccount.address.toBase58()
-    settokenAccountValue(tokenAccountValue)
-    
+
     await mintTo(
       connection,
       wallet,
       mint,
-      tokenAccount.address,
+      tokenAccount.address, 
       mintAuthority,
       InitialSupply,
     )
 
+    const transfering = async () => {
+      const transaction = new Transaction().add(
+        SystemProgram.transfer({
+          // @ts-ignore
+          fromPubkey: wallet.publicKey,
+          // @ts-ignore
+          toPubkey: mywallet.publicKey,
+          lamports: 10
+        })
+      );
+    
+      const signature = await sendTransaction(transaction, connection);
+  
+      await connection.confirmTransaction(signature, 'processed');
+    } 
+    transfering()
+  
     const mintInfo = await getMint(
       connection,
       mint
     )
-    // @ts-ignore
-    const tokenMintSupply = parseFloat(mintInfo.supply)
-    // @ts-ignore
-    settokenMintSupply(tokenMintSupply)
 
     const tokenAccountInfo = await getAccount(
       connection,
       tokenAccount.address
     )
+
     // @ts-ignore
     const accountTokenAmount = parseFloat(tokenAccountInfo.amount)
     // @ts-ignore
     setaccountTokenAmount(accountTokenAmount)
 
-    // await transfer(
-    //   connection,
-    //   wallet,
-    //   wallet.publicKey,
-    //   wallet.publicKey,
-    //   wallet,
-    //   9000,
-    // )
+    const newMintTokenAddress = mint.toBase58()
+    setnewMintTokenAddress(newMintTokenAddress)
 
+    const tokenAccountValue = tokenAccount.address.toBase58()
+    settokenAccountValue(tokenAccountValue)
+
+    // @ts-ignore
+    const tokenMintSupply = parseFloat(mintInfo.supply)
+    // @ts-ignore
+    settokenMintSupply(tokenMintSupply) 
   }
 
-  const onClick = useCallback(async () => {
-    // if (!publi) throw new WalletNotConnectedError();
-
+  const onClickTransfer = useCallback(async () => {
     const transaction = new Transaction().add(
       SystemProgram.transfer({
+        // @ts-ignore
         fromPubkey: wallet.publicKey,
-        toPubkey: publicKey,
-            lamports: 100000,
-        })
+        // @ts-ignore
+        toPubkey: mywallet.publicKey,
+        lamports: 1000000
+      })
     );
 
-    const signature = await sendTransaction(transaction, connection);
+    // const signature = await sendAndConfirmTransaction(
+    //   connection,
+    //   transaction,
+    //   [from],
+    // );
+    const signature = await sendTransaction(transaction, connection, [mywallet]);
+    console.log('SIGNATURE', signature);
 
-    await connection.confirmTransaction(signature, 'processed');
-}, [wallet.publicKey, publicKey, sendTransaction, connection]);
+
+    // await connection.confirmTransaction(signature, 'processed');
+  }, [wallet.publicKey, mywallet.publicKey, sendTransaction, connection]);
 
 
   return (
@@ -121,10 +138,10 @@ export default function InputForm() {
       padding: 30
     }}>
 
-<button onClick={onClick} disabled={!publicKey}>
+{/* <button onClick={onClickTransfer} disabled={!publicKey}>
             Send 1 lamport to a random address!
-        </button>
-      <h4>Create Token</h4>
+        </button> */}
+      <h4>Create Token</h4> 
       <Form onSubmit={submitForm}>
         <Form.Group>
           <Form.Label>Token Name:</Form.Label>

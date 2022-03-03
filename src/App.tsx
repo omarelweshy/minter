@@ -57,9 +57,7 @@ const Context: FC<{ children: ReactNode }> = ({ children }) => {
     );
 };
 const Content: FC = () => {
-    // const connection = new Connection("http://localhost:8899");
     const wallet = useWallet();
-
 
     return (
         <div>
